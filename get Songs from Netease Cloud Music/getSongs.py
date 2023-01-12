@@ -3,6 +3,7 @@ import requests
 import re
 from lxml import etree
 import json
+import time
 
 
 class Song:
@@ -54,24 +55,50 @@ if __name__ == '__main__':
                       '108.0.0.0 Safari/537.36 Edg/108.0.1462.76'
     }
 
-    response = requests.get(url='https://music.163.com/album?id=511958', headers=headers)
+    searchUrl = 'http://music.163.com/api/search/get/web?s=' \
+                '陕北民歌' \
+                '&type=10&limit=20'
 
-    responseText = response.text
+    searchResponse = requests.get(url=searchUrl).text
 
-    tree = etree.HTML(responseText)
+    albums = json.loads(searchResponse).get('result').get('albums')
 
-    songUrl = tree.xpath('//ul[@class="f-hide"]/li/a/@href')
+    albumUrlList = []
+
+    for album in albums:
+        # http://music.163.com/api/album/30191
+        if albums.index(album) < 3:
+            try:
+                albumId = album.get('idStr')
+
+                albumUrl = 'http://music.163.com/api/album/' + albumId
+
+                albumData = requests.get(url=albumUrl, headers=headers).text
+
+                albumSongs = json.loads(albumData).get('album').get('songs')
+
+                print(albumSongs)
+
+                time.sleep(5)
+
+            except AttributeError:
+
+                print(album.get('idStr'))
+
+                time.sleep(5)
 
     songList = []
 
-    for songId in songUrl:
-        if songUrl.index(songId) < 30:
-            songId = songId.split('=')[1]
-            song = getSong(songId)
-            songList.append(song)
-        else:
-            break
-
-    with open('songList.json', 'w', encoding='utf-8') as fp:
-        for song in songList:
-            json.dump(obj=song.__dict__, fp=fp, ensure_ascii=False)
+    #
+    #
+    # for songId in songUrl:
+    #     if songUrl.index(songId) < 30:
+    #         songId = songId.split('=')[1]
+    #         song = getSong(songId)
+    #         songList.append(song)
+    #     else:
+    #         break
+    #
+    # with open('songList.json', 'w', encoding='utf-8') as fp:
+    #     for song in songList:
+    #         json.dump(obj=song.__dict__, fp=fp, ensure_ascii=False)
