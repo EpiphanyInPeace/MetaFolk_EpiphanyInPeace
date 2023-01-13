@@ -28,14 +28,25 @@ def getSong(songId):
 
     theSong = Song()
 
-    infoResponse = requests.get('https://music.163.com/api/song/detail/?ids=[' + songId + ']')
+    headers = {
+        'user-agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, likeGecko) Chrome/'
+                      '108.0.0.0 Safari/537.36 Edg/108.0.1462.76'
+    }
 
-    info = json.loads(infoResponse.text).get('songs')[0]
+    infoUrl = 'https://music.163.com/api/song/detail/?ids=[' + songId + ']'
 
-    theSong.songName = info['name']
+    infoResponse = requests.get(url=infoUrl, headers=headers)
 
-    for artist in info['artists']:
-        theSong.artists = theSong.artists + artist['name'] + ';'
+    try:
+        info = json.loads(infoResponse.text).get('songs')[0]
+
+        theSong.songName = info['name']
+
+        for artist in info['artists']:
+            theSong.artists = theSong.artists + artist['name'] + ';'
+
+    except TypeError:
+        print(songId + '歌曲信息查询异常')
 
     lyricResponse = requests.get('https://music.163.com/api/song/lyric?id=' + songId + '&lv=1&kv=1&tv=-1')
 
@@ -46,6 +57,27 @@ def getSong(songId):
     theSong.mediaUrl = 'http://music.163.com/song/media/outer/url?id=' + songId + '.mp3'
 
     return theSong
+
+
+def getSongIdListFromAlbum(albumId):
+    """
+
+    :param albumId: str
+    :return: a List of songId
+    """
+
+    songIdList = []
+
+    albumUrl = 'http://music.163.com/api/album/' + albumId
+
+    albumData = requests.get(url=albumUrl, headers=headers).text
+
+    albumSongs = json.loads(albumData).get('album').get('songs')
+
+    for data in albumSongs:
+        songIdList.append(data.get('id'))
+
+    return songIdList
 
 
 if __name__ == '__main__':
@@ -63,42 +95,29 @@ if __name__ == '__main__':
 
     albums = json.loads(searchResponse).get('result').get('albums')
 
-    albumUrlList = []
+    songIdList = []
 
     for album in albums:
-        # http://music.163.com/api/album/30191
         if albums.index(album) < 3:
             try:
                 albumId = album.get('idStr')
 
-                albumUrl = 'http://music.163.com/api/album/' + albumId
+                songIdList = getSongIdListFromAlbum(albumId)
 
-                albumData = requests.get(url=albumUrl, headers=headers).text
-
-                albumSongs = json.loads(albumData).get('album').get('songs')
-
-                print(albumSongs)
-
-                time.sleep(5)
+                time.sleep(0.5)
 
             except AttributeError:
-
-                print(album.get('idStr'))
-
-                time.sleep(5)
+                print(album.get('idStr') + '专辑查询异常')
 
     songList = []
 
-    #
-    #
-    # for songId in songUrl:
-    #     if songUrl.index(songId) < 30:
-    #         songId = songId.split('=')[1]
-    #         song = getSong(songId)
-    #         songList.append(song)
-    #     else:
-    #         break
-    #
-    # with open('songList.json', 'w', encoding='utf-8') as fp:
-    #     for song in songList:
-    #         json.dump(obj=song.__dict__, fp=fp, ensure_ascii=False)
+    for songId in songIdList:
+        song = getSong(str(songId))
+        songList.append(song)
+        print(song.songName, song.mediaUrl)
+        time.sleep(1)
+
+    with open('songList.json', 'w', encoding='utf-8') as fp:
+        for song in songList:
+            json.dump(obj=song.__dict__, fp=fp, ensure_ascii=False)
+            fp.write(',')
