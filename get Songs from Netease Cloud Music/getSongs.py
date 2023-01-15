@@ -2,7 +2,6 @@
 import requests
 import re
 import json
-import time
 
 
 class Song:
@@ -49,7 +48,7 @@ def getSong(songId):
 
     except TypeError:
 
-        print(songId + '歌曲信息查询异常')
+        print(songId + '歌曲信息查询异常，访问过于频繁，请稍后再试')
 
     lyricResponse = requests.get('https://music.163.com/api/song/lyric?id=' + songId + '&lv=1&kv=1&tv=-1').json()
 
@@ -69,11 +68,25 @@ def getSongIdListFromAlbum(albumId):
     :return: a List of songId
     """
 
+    headers = {
+        'user-agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, likeGecko) Chrome/'
+                      '108.0.0.0 Safari/537.36 Edg/108.0.1462.76'
+    }
+
     songIdList = []
 
     albumUrl = 'http://music.163.com/api/album/' + albumId
 
+    print('第1次查询' + albumId + '专辑信息...')
+
     albumData = requests.get(url=albumUrl, headers=headers).json()
+
+    count = 1
+
+    while albumData.get('code') != 200:
+        count += 1
+        print('第' + str(count) + '次查询' + albumId + '专辑信息...')
+        albumData = requests.get(url=albumUrl, headers=headers).json()
 
     albumSongs = albumData.get('album').get('songs')
 
@@ -87,7 +100,8 @@ def getSongIdListFromAlbum(albumId):
 if __name__ == '__main__':
     # song = getSong('304827')
     # song.show()
-
+    # songIdList = getSongIdListFromAlbum('30191')
+    # print(songIdList)
     headers = {
         'user-agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, likeGecko) Chrome/'
                       '108.0.0.0 Safari/537.36 Edg/108.0.1462.76'
@@ -109,15 +123,7 @@ if __name__ == '__main__':
 
             albumId = albums[i].get('idStr')
 
-            try:
-
-                songIdList.extend(getSongIdListFromAlbum(albumId))
-
-            except AttributeError:
-
-                print(albumId + '专辑第一次查询异常')
-
-            time.sleep(1)
+            songIdList.extend(getSongIdListFromAlbum(albumId))
 
     songList = []
 
@@ -126,8 +132,6 @@ if __name__ == '__main__':
         song = getSong(str(songId))
 
         songList.append(song)
-
-        time.sleep(1)
 
     with open('songList.json', 'w', encoding='utf-8') as fp:
 
