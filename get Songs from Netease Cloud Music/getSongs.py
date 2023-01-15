@@ -1,12 +1,12 @@
 
 import requests
 import re
-from lxml import etree
 import json
 import time
 
 
 class Song:
+
     songName = ''
     artists = ''
     lyric = ''
@@ -16,7 +16,7 @@ class Song:
         print('name = ' + self.songName)
         print('artists = ' + self.artists)
         print('lyric = ' + self.lyric)
-        print('url = ' + self.url)
+        print('mediaUrl = ' + self.mediaUrl)
 
 
 def getSong(songId):
@@ -35,22 +35,25 @@ def getSong(songId):
 
     infoUrl = 'https://music.163.com/api/song/detail/?ids=[' + songId + ']'
 
-    infoResponse = requests.get(url=infoUrl, headers=headers)
+    infoResponse = requests.get(url=infoUrl, headers=headers).json()
 
     try:
-        info = json.loads(infoResponse.text).get('songs')[0]
+
+        info = infoResponse.get('songs')[0]
 
         theSong.songName = info['name']
 
         for artist in info['artists']:
+
             theSong.artists = theSong.artists + artist['name'] + ';'
 
     except TypeError:
+
         print(songId + '歌曲信息查询异常')
 
-    lyricResponse = requests.get('https://music.163.com/api/song/lyric?id=' + songId + '&lv=1&kv=1&tv=-1')
+    lyricResponse = requests.get('https://music.163.com/api/song/lyric?id=' + songId + '&lv=1&kv=1&tv=-1').json()
 
-    lrc = json.loads(lyricResponse.text).get('lrc')['lyric']
+    lrc = lyricResponse.get('lrc')['lyric']
 
     theSong.lyric = re.sub('\\[.*?]', '', lrc)
 
@@ -70,17 +73,20 @@ def getSongIdListFromAlbum(albumId):
 
     albumUrl = 'http://music.163.com/api/album/' + albumId
 
-    albumData = requests.get(url=albumUrl, headers=headers).text
+    albumData = requests.get(url=albumUrl, headers=headers).json()
 
-    albumSongs = json.loads(albumData).get('album').get('songs')
+    albumSongs = albumData.get('album').get('songs')
 
     for data in albumSongs:
+
         songIdList.append(data.get('id'))
 
     return songIdList
 
 
 if __name__ == '__main__':
+    # song = getSong('304827')
+    # song.show()
 
     headers = {
         'user-agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, likeGecko) Chrome/'
@@ -91,33 +97,48 @@ if __name__ == '__main__':
                 '陕北民歌' \
                 '&type=10&limit=20'
 
-    searchResponse = requests.get(url=searchUrl).text
+    searchResponse = requests.get(url=searchUrl).json()
 
-    albums = json.loads(searchResponse).get('result').get('albums')
+    albums = searchResponse.get('result').get('albums')
 
     songIdList = []
 
-    for album in albums:
-        if albums.index(album) < 3:
+    for i in range(len(albums)):
+
+        if i < 3:
+
+            albumId = albums[i].get('idStr')
+
             try:
-                albumId = album.get('idStr')
 
-                songIdList = getSongIdListFromAlbum(albumId)
-
-                time.sleep(0.5)
+                songIdList.extend(getSongIdListFromAlbum(albumId))
 
             except AttributeError:
-                print(album.get('idStr') + '专辑查询异常')
+
+                print(albumId + '专辑第一次查询异常')
+
+            time.sleep(1)
 
     songList = []
 
     for songId in songIdList:
+
         song = getSong(str(songId))
+
         songList.append(song)
-        print(song.songName, song.mediaUrl)
+
         time.sleep(1)
 
     with open('songList.json', 'w', encoding='utf-8') as fp:
-        for song in songList:
-            json.dump(obj=song.__dict__, fp=fp, ensure_ascii=False)
+
+        fp.write('[')
+
+        for i in range(len(songList) - 1):
+
+            json.dump(obj=songList[i].__dict__, fp=fp, ensure_ascii=False)
+
             fp.write(',')
+
+        json.dump(obj=songList[-1].__dict__, fp=fp, ensure_ascii=False)
+
+        fp.write(']')
