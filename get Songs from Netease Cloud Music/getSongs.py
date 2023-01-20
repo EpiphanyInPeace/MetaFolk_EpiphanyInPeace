@@ -1,7 +1,6 @@
 
 import requests
 import re
-import json
 import pymysql
 
 
@@ -19,23 +18,23 @@ class Song:
         print('mediaUrl = ' + self.mediaUrl)
 
 
-def getSong(songId):
+def getSong(song_Id):
     """
 
-    :param songId: str
+    :param song_Id: str
     :return: an instance of the Song class
     """
 
     theSong = Song()
 
-    headers = {
+    headers_ = {
         'user-agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, likeGecko) Chrome/'
                       '108.0.0.0 Safari/537.36 Edg/108.0.1462.76'
     }
 
-    infoUrl = 'https://music.163.com/api/song/detail/?ids=[' + songId + ']'
+    infoUrl = 'https://music.163.com/api/song/detail/?ids=[' + song_Id + ']'
 
-    infoResponse = requests.get(url=infoUrl, headers=headers).json()
+    infoResponse = requests.get(url=infoUrl, headers=headers_).json()
 
     try:
 
@@ -47,40 +46,40 @@ def getSong(songId):
 
             theSong.artists = theSong.artists + artist['name'] + ';'
 
+        lyricResponse = requests.get('https://music.163.com/api/song/lyric?id=' + song_Id + '&lv=1&kv=1&tv=-1').json()
+
+        lrc = lyricResponse.get('lrc')['lyric']
+
+        theSong.lyric = re.sub('\\[.*?]', '', lrc)
+
+        theSong.mediaUrl = 'http://music.163.com/song/media/outer/url?id=' + song_Id + '.mp3'
+
+        return theSong
     except TypeError:
 
-        print(songId + '歌曲信息查询异常，访问过于频繁，请稍后再试')
-
-    lyricResponse = requests.get('https://music.163.com/api/song/lyric?id=' + songId + '&lv=1&kv=1&tv=-1').json()
-
-    lrc = lyricResponse.get('lrc')['lyric']
-
-    theSong.lyric = re.sub('\\[.*?]', '', lrc)
-
-    theSong.mediaUrl = 'http://music.163.com/song/media/outer/url?id=' + songId + '.mp3'
-
-    return theSong
+        print(song_Id + '歌曲信息查询异常，访问过于频繁，请稍后再试')
+        return None
 
 
-def getSongIdListFromAlbum(albumId):
+def getSongIdListFromAlbum(album_Id):
     """
 
-    :param albumId: str
+    :param album_Id: str
     :return: a List of songId
     """
 
-    headers = {
+    headers_ = {
         'user-agent': 'Mozilla/5.0(Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, likeGecko) Chrome/'
                       '108.0.0.0 Safari/537.36 Edg/108.0.1462.76'
     }
 
-    songIdList = []
+    songId_List = []
 
-    albumUrl = 'http://music.163.com/api/album/' + albumId
+    albumUrl = 'http://music.163.com/api/album/' + album_Id
 
-    print('第1次查询' + albumId + '专辑信息...')
+    print('第1次查询' + album_Id + '专辑信息...')
 
-    albumData = requests.get(url=albumUrl, headers=headers).json()
+    albumData = requests.get(url=albumUrl, headers=headers_).json()
 
     count = 1
 
@@ -88,23 +87,23 @@ def getSongIdListFromAlbum(albumId):
 
         count += 1
 
-        print('第' + str(count) + '次查询' + albumId + '专辑信息...')
+        print('第' + str(count) + '次查询' + album_Id + '专辑信息...')
 
-        albumData = requests.get(url=albumUrl, headers=headers).json()
+        albumData = requests.get(url=albumUrl, headers=headers_).json()
 
     albumSongs = albumData.get('album').get('songs')
 
     for data in albumSongs:
 
-        songIdList.append(data.get('id'))
+        songId_List.append(data.get('id'))
 
-    return songIdList
+    return songId_List
 
 
-def putSongListIntoDB(songList):
+def putSongListIntoDB(song_List):
     """
 
-    :param songList: a List of instances of class Song
+    :param song_List: a List of instances of class Song
     :return:
     """
 
@@ -114,9 +113,9 @@ def putSongListIntoDB(songList):
 
     cursor = db.cursor()
 
-    for song in songList:
+    for song_ in song_List:
 
-        insert_Song = "insert into song(song_name) values('{song_name}');".format(song_name=song.songName)
+        insert_Song = "insert into song(song_name) values('{song_name}');".format(song_name=song_.songName)
 
         cursor.execute(insert_Song)
 
@@ -126,7 +125,7 @@ def putSongListIntoDB(songList):
 
         insert_item_song = "insert into item_song(song_ref_id, item_singer) values({song_ref_id}, " \
                            "'{item_singer}');".format(
-                            song_ref_id=cursor.fetchone()[0], item_singer=song.artists)
+                            song_ref_id=cursor.fetchone()[0], item_singer=song_.artists)
 
         cursor.execute(insert_item_song)
 
@@ -136,7 +135,7 @@ def putSongListIntoDB(songList):
 
         insert_item_lyrics = "insert into item_lyrics(item_ref_id, lyrics) values({item_ref_id}, " \
                              "'{lyrics}');".format(
-                              item_ref_id=cursor.fetchone()[0], lyrics=song.lyric)
+                              item_ref_id=cursor.fetchone()[0], lyrics=song_.lyric)
 
         cursor.execute(insert_item_lyrics)
 
@@ -154,7 +153,7 @@ if __name__ == '__main__':
                       '108.0.0.0 Safari/537.36 Edg/108.0.1462.76'
     }
 
-    searchUrl = 'http://music.163.com/api/search/get/web?s=' \
+    searchUrl = 'https://music.163.com/api/search/get/web?s=' \
                 '陕北民歌' \
                 '&type=10&limit=20'
 
@@ -166,7 +165,7 @@ if __name__ == '__main__':
 
     for i in range(len(albums)):
 
-        if i < 1:
+        if i < 2:
 
             albumId = albums[i].get('idStr')
 
@@ -178,7 +177,9 @@ if __name__ == '__main__':
 
         song = getSong(str(songId))
 
-        songList.append(song)
+        if song is not None:
+
+            songList.append(song)
 
     putSongListIntoDB(songList)
 
